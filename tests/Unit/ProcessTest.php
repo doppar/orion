@@ -1,6 +1,6 @@
 <?php
 
-namespace Doppar\Orion\Tests;
+namespace Doppar\Orion\Tests\Unit;
 
 use Doppar\Orion\Process\ProcessPipeline;
 use Doppar\Orion\Process\ProcessPool;
