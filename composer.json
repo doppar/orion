@@ -1,0 +1,13 @@
+{
+    "name": "doppar/orion",
+    "description": "A process manager for doppar framework",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Doppar\\Orion\\": "src/"
+        }
+    },
+    "minimum-stability": "dev",
+    "require": {}
+}
