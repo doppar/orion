@@ -11,7 +11,7 @@
 <a href="https://github.com/doppar/orion/blob/main/LICENSE"><img src="https://img.shields.io/github/license/doppar/orion" alt="License"></a>
 </p>
 
-## About Doppar Flarion
+## About Doppar Orion
 
 > **Note:** This repository contains the core code of the Doppar orion package. If you want to build an application using Doppar, visit the main [Doppar repository](https://github.com/doppar/doppar).
 
