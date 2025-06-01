@@ -24,6 +24,6 @@ class OrionServiceProvider extends ServiceProvider
      */
     public function boot()
     {
-        $this->loadRoutes(__DIR__ . '/routes/web.php');
+        //
     }
 }
