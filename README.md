@@ -5,17 +5,17 @@
 </p>
 
 <p align="center">
-<a href="https://github.com/doppar/flarion/actions/workflows/tests.yml"><img src="https://github.com/doppar/flarion/actions/workflows/tests.yml/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/doppar/flarion"><img src="https://img.shields.io/packagist/dt/doppar/flarion" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/doppar/flarion"><img src="https://img.shields.io/packagist/v/doppar/flarion" alt="Latest Stable Version"></a>
-<a href="https://github.com/doppar/flarion/blob/main/LICENSE"><img src="https://img.shields.io/github/license/doppar/flarion" alt="License"></a>
+<a href="https://github.com/doppar/orion/actions/workflows/tests.yml"><img src="https://github.com/doppar/orion/actions/workflows/tests.yml/badge.svg" alt="Build Status"></a>
+<a href="https://packagist.org/packages/doppar/orion"><img src="https://img.shields.io/packagist/dt/doppar/orion" alt="Total Downloads"></a>
+<a href="https://packagist.org/packages/doppar/orion"><img src="https://img.shields.io/packagist/v/doppar/orion" alt="Latest Stable Version"></a>
+<a href="https://github.com/doppar/orion/blob/main/LICENSE"><img src="https://img.shields.io/github/license/doppar/orion" alt="License"></a>
 </p>
 
 ## About Doppar Flarion
 
-> **Note:** This repository contains the core code of the Doppar framework flarion package. If you want to build an application using Doppar, visit the main [Doppar repository](https://github.com/doppar/doppar).
+> **Note:** This repository contains the core code of the Doppar orion package. If you want to build an application using Doppar, visit the main [Doppar repository](https://github.com/doppar/doppar).
 
-Doppar Flarion is a cutting-edge API authentication and authorization package designed to revolutionize how developers build secure, scalable, and high-performance APIs. With a focus on simplicity, flexibility, and robustness, Doppar Flarion empowers developers to implement authentication flows effortlessly while ensuring top-tier security and efficiency across all layers of their applications.
+Doppar Orion is a secure and scalable process manager for the Doppar framework, built on top of Symfony's Process component. It enables safe command execution, parallel processing, and pipeline orchestration with injection-resistant command handling.
 
 ## Contributing
 

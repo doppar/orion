@@ -3,11 +3,49 @@
     "description": "A process manager for doppar framework",
     "type": "library",
     "license": "MIT",
+    "support": {
+        "issues": "https://github.com/doppar/orion/issues",
+        "source": "https://github.com/doppar/orion"
+    },
+    "authors": [
+        {
+            "name": "Mahedi Hasan",
+            "email": "mahedi@doppar.com"
+        }
+    ],
+    "require-dev": {
+        "mockery/mockery": "^1.6",
+        "phpunit/phpunit": "^12.1.5"
+    },
     "autoload": {
         "psr-4": {
             "Doppar\\Orion\\": "src/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "Doppar\\Orion\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "1.x-dev"
+        },
+        "doppar": {
+            "providers": [
+                "Doppar\\Orion\\OrionServiceProvider"
+            ]
+        }
+    },
+    "scripts": {
+        "post-install-cmd": []
+    },
+    "config": {
+        "sort-packages": true
+    },
     "minimum-stability": "dev",
-    "require": {}
+    "prefer-stable": true,
+    "require": {
+        "symfony/process": "^7.3"
+    }
 }

@@ -5,7 +5,7 @@ use Doppar\Orion\Support\Facades\Process;
 
 Route::get('orion', function () {
     // $result = Process::ping('ls -la')->execute();
-    // // $result = Process::ping('rm -rf /; echo "hacked"')->execute();
+    // $result = Process::ping('rm -rf /; echo "hacked"')->execute();
     // return $result->getOutput();
     // return $result->getError();
 
@@ -87,9 +87,9 @@ Route::get('orion', function () {
     // Process pool
     // $pool = Process::pool()
     //     ->inDirectory(__DIR__)
-    //     ->addProcess('bash import-1.sh')
-    //     ->addProcess('bash import-2.sh')
-    //     ->addProcess('bash import-3.sh')
+    //     ->add('bash import-1.sh')
+    //     ->add('bash import-2.sh')
+    //     ->add('bash import-3.sh')
     //     ->start();
 
     // while (!empty($pool->getRunningProcesses())) {
@@ -100,12 +100,26 @@ Route::get('orion', function () {
 
     // dd($results);
 
-    // Concurrent execution
-    // [$first, $second, $third] = Process::runConcurrently([
+    // // Concurrent execution
+    // [$first, $second, $third] = Process::asConcurrently([
     //     'ls -la',
     //     'ls -la ' . database_path(),
     //     'ls -la ' . storage_path(),
     // ], __DIR__);
 
     // echo $first->getOutput();
+
+    $pool = Process::pool()
+        ->withConcurrency(3)
+        ->inDirectory('/var/www/html/skeleton')
+        ->withOutputHandler(function ($result) {
+            echo "Process completed with exit code: " . $result->getExitCode() . "\n";
+        });
+
+    $pool->add('command1')
+        ->add('command2')
+        ->add('command3')
+        ->add('command4');
+
+    $results = $pool->start()->waitForAll();
 });

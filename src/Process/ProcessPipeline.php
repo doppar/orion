@@ -2,37 +2,81 @@
 
 namespace Doppar\Orion\Process;
 
-use Symfony\Component\Process\Process as SymfonyProcess;
-
 class ProcessPipeline
 {
+    use InteractsWithCommandSanitization;
+
+    /**
+     * @var array $commands The list of commands to execute in the pipeline
+     */
     protected $commands = [];
+
+    /**
+     * @var string|null $cwd The working directory for the commands (null means current PHP working dir)
+     */
     protected $cwd = null;
+
+    /**
+     * @var array|null $env Environment variables for the processes (null means inherit from PHP)
+     */
     protected $env = null;
 
+    /**
+     * Static constructor for fluent interface
+     *
+     * @return self
+     */
     public static function create(): self
     {
         return new static();
     }
 
+    /**
+     * Set the working directory for all commands in the pipeline
+     *
+     * @param string $cwd The working directory path
+     * @return self
+     */
     public function inDirectory(string $cwd): self
     {
         $this->cwd = $cwd;
+
         return $this;
     }
 
+    /**
+     * Set environment variables for all processes in the pipeline
+     *
+     * @param array $env Associative array of environment variables
+     * @return self
+     */
     public function withEnvironment(array $env): self
     {
         $this->env = $env;
         return $this;
     }
 
+    /**
+     * Add a command to the pipeline
+     *
+     * @param string $command The command to add (will be sanitized)
+     * @return self
+     */
     public function add(string $command): self
     {
-        $this->commands[] = $command;
+        $this->commands[] = static::sanitizeCommand($command);
         return $this;
     }
 
+    /**
+     * Execute the pipeline of commands
+     *
+     * Creates a chain of processes where each process's output is piped
+     * to the next process's input. Returns the combined result.
+     *
+     * @return ProcessResult The result of the pipeline execution
+     * @throws \RuntimeException If no commands were added or if process creation fails
+     */
     public function execute(): ProcessResult
     {
         if (empty($this->commands)) {
