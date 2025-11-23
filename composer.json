@@ -1,6 +1,6 @@
 {
     "name": "doppar/orion",
-    "description": "A process manager for doppar framework",
+    "description": "Run shell commands in parallel with ease.",
     "type": "library",
     "license": "MIT",
     "support": {
@@ -10,7 +10,7 @@
     "authors": [
         {
             "name": "Mahedi Hasan",
-            "email": "mahedi@doppar.com"
+            "email": "mahedy150101@gmail.com"
         }
     ],
     "require-dev": {
@@ -46,6 +46,6 @@
     "minimum-stability": "dev",
     "prefer-stable": true,
     "require": {
-        "symfony/process": "^7.3"
+        "symfony/process": "^7.4"
     }
 }
