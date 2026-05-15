@@ -3,6 +3,7 @@
 namespace Doppar\Orion\Support\Facades;
 
 use Doppar\Orion\Process\InteractsWithCommandSanitization;
+use Phaseolies\DI\Container;
 use Phaseolies\Facade\BaseFacade;
 
 class Process extends BaseFacade
@@ -20,15 +21,30 @@ class Process extends BaseFacade
     }
 
     /**
+     * Resolve an Orion service through the same pure facade pattern used by Doppar.
+     *
+     * @param string $accessor
+     * @return mixed
+     */
+    protected static function resolveOrionService(string $accessor)
+    {
+        if (static::$app) {
+            return static::$app->get($accessor);
+        }
+
+        return Container::getInstance()->get($accessor);
+    }
+
+    /**
      * Create a new process instance with command sanitization
      *
-     * @param string|array $command The command to execute (string will be exploded)
+     * @param string|array $command
      * @return \Doppar\Orion\Process\ProcessService
-     * @throws \InvalidArgumentException If command contains dangerous characters
+     * @throws \InvalidArgumentException
      */
     public static function ping($command)
     {
-        return static::$app['orion.process']::create(
+        return static::resolveOrionService(static::getFacadeAccessor())::create(
             static::sanitizeCommand($command)
         );
     }
@@ -40,7 +56,7 @@ class Process extends BaseFacade
      */
     public static function pingSilently()
     {
-        return static::$app['orion.process']::pingSilently();
+        return static::resolveOrionService(static::getFacadeAccessor())::pingSilently();
     }
 
     /**
@@ -50,7 +66,7 @@ class Process extends BaseFacade
      */
     public static function pipeline()
     {
-        return static::$app['orion.pipeline']::create();
+        return static::resolveOrionService('orion.pipeline')::create();
     }
 
     /**
@@ -60,16 +76,16 @@ class Process extends BaseFacade
      */
     public static function pool()
     {
-        return static::$app['orion.pool']::create();
+        return static::resolveOrionService('orion.pool')::create();
     }
 
     /**
      * Run multiple commands concurrently
      *
-     * @param array $commands Array of commands to execute
-     * @param string|null $cwd Working directory
-     * @return array Array of ProcessResult objects
-     * @throws \InvalidArgumentException If any command contains dangerous characters
+     * @param array $commands
+     * @param string|null $cwd
+     * @return array
+     * @throws \InvalidArgumentException
      */
     public static function asConcurrently(array $commands, ?string $cwd = null)
     {
