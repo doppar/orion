@@ -8,13 +8,21 @@ trait InteractsWithCommandSanitization
      * Sanitize command input to prevent injection attacks
      *
      * @param string|array $command
-     * @return string
-     * @throws \InvalidArgumentException If dangerous characters detected
+     * @return string|array
+     * @throws \InvalidArgumentException
      */
     protected static function sanitizeCommand($command)
     {
         if (is_array($command)) {
-            return array_map([static::class, 'validateCommand'], $command);
+            foreach ($command as $segment) {
+                if (!is_string($segment)) {
+                    throw new \InvalidArgumentException('Command array may only contain strings');
+                }
+
+                static::validateCommand($segment);
+            }
+
+            return $command;
         }
 
         if (!is_string($command)) {
@@ -22,6 +30,7 @@ trait InteractsWithCommandSanitization
         }
 
         static::validateCommand($command);
+
         return $command;
     }
 
@@ -47,7 +56,7 @@ trait InteractsWithCommandSanitization
         foreach ($dangerousPatterns as $pattern) {
             if (preg_match($pattern, $command)) {
                 throw new \InvalidArgumentException(
-                    "Potential command injection detected: " .
+                    'Potential command injection detected: ' .
                         htmlspecialchars($command, ENT_QUOTES, 'UTF-8')
                 );
             }
