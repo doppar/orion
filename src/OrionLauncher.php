@@ -2,13 +2,13 @@
 
 namespace Doppar\Orion;
 
-use Phaseolies\Providers\GhostableProvider;
-use Phaseolies\Providers\ServiceProvider;
+use Phaseolies\Launchers\GhostableLauncher;
+use Phaseolies\Launchers\ServiceLauncher;
 use Doppar\Orion\Process\ProcessService;
 use Doppar\Orion\Process\ProcessPool;
 use Doppar\Orion\Process\ProcessPipeline;
 
-class OrionServiceProvider extends ServiceProvider implements GhostableProvider
+class OrionLauncher extends ServiceLauncher implements GhostableLauncher
 {
     /**
      * Register services and bindings into the container.
@@ -23,7 +23,7 @@ class OrionServiceProvider extends ServiceProvider implements GhostableProvider
     /**
      * Bootstrap any application services.
      */
-    public function boot()
+    public function launch()
     {
         //
     }
