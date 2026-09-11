@@ -1,6 +1,6 @@
 {
     "name": "doppar/orion",
-    "description": "Run shell commands in parallel with ease.",
+    "description": "External process orchestration for Doppar — run shell commands individually, in concurrency-limited pools, or chained into piped pipelines.",
     "type": "library",
     "license": "MIT",
     "support": {
@@ -27,22 +27,13 @@
             "Doppar\\Orion\\Tests\\": "tests/"
         }
     },
-    "extra": {
-        "doppar": {
-            "providers": [
-                "Doppar\\Orion\\OrionLauncher"
-            ]
-        }
-    },
-    "scripts": {
-        "post-install-cmd": []
-    },
     "config": {
         "sort-packages": true
     },
     "minimum-stability": "dev",
     "prefer-stable": true,
     "require": {
+        "php": "^8.5",
         "symfony/process": "^8.1"
     }
 }
