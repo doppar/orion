@@ -1,6 +1,6 @@
 {
     "name": "doppar/orion",
-    "description": "External process orchestration for Doppar — run shell commands individually, in concurrency-limited pools, or chained into piped pipelines.",
+    "description": "External process orchestration for Doppar \u2014 run shell commands individually, in concurrency-limited pools, or chained into piped pipelines.",
     "type": "library",
     "license": "MIT",
     "support": {
@@ -14,7 +14,9 @@
         }
     ],
     "require-dev": {
+        "doppar/framework": "4.*",
         "mockery/mockery": "^1.6",
+        "phpstan/phpstan": "^2.1",
         "phpunit/phpunit": "^13.3"
     },
     "autoload": {
@@ -35,5 +37,8 @@
     "require": {
         "php": "^8.5",
         "symfony/process": "^8.1"
+    },
+    "scripts": {
+        "analyse": "vendor/bin/phpstan analyse --memory-limit=1G"
     }
 }
