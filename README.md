@@ -13,17 +13,19 @@
 
 ## About Doppar Orion
 
-> **Note:** This repository contains the core code of the Doppar orion package. If you want to build an application using Doppar, visit the main [Doppar repository](https://github.com/doppar/doppar).
+Doppar Processes provides a powerful and expressive abstraction for running and managing system-level commands and scripts from within your PHP application. Built on top of the Symfony Process Component, it gives you a fluent interface for executing commands, handling their output, managing timeouts, and controlling processes without having to work directly with the underlying process APIs.
 
-Doppar Orion is a secure and scalable process manager for the Doppar framework, built on top of Symfony's Process component. It enables safe command execution, parallel processing, and pipeline orchestration with injection-resistant command handling.
+Processes supports both synchronous and asynchronous execution, allowing you to choose whether your application should wait for a command to finish or continue working while a long-running process executes. Output can be captured, streamed in real time, or disabled entirely when it is not needed, giving you control over both process behavior and resource usage.
+
+For applications that need to execute multiple commands, Doppar provides command pipelines and concurrent process execution. Pipelines allow the output of one command to flow into the next, while process pools make it possible to run multiple independent commands in parallel with configurable concurrency limits. Asynchronous processes can also be monitored while running, allowing applications to inspect incremental output, detect conditions, and enforce execution timeouts.
 
 ## Contributing
 
-Thank you for considering contributing to the Doppar framework! The contribution guide can be found in the [Doppar documentation](https://doppar.com/versions/3.x/contributions.html).
+Thank you for considering contributing to the Doppar framework! The contribution guide can be found in the [Doppar documentation](https://doppar.com/versions/4.x/contributions).
 
 ## Code of Conduct
 
-In order to ensure that the Doppar community is welcoming to all, please review and abide by the [Code of Conduct](https://doppar.com/versions/3.x/contributions.html#code-of-conduct).
+In order to ensure that the Doppar community is welcoming to all, please review and abide by the [Code of Conduct](https://doppar.com/versions/4.x/contributions#code-of-conduct).
 
 ## Security Vulnerabilities
 
