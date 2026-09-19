@@ -1,5 +1,16 @@
 # Release Notes
 
+## 4.0.0 - 2026-09-16
+
+### What's Changed
+
+* ready for doppar 4.x by [@techmahedy](https://github.com/techmahedy) in https://github.com/doppar/orion/pull/3
+* tests.yml for php8.5 by [@techmahedy](https://github.com/techmahedy) in https://github.com/doppar/orion/pull/4
+* fix phpstan error by [@techmahedy](https://github.com/techmahedy) in https://github.com/doppar/orion/pull/5
+* readme.md updated for 4.x version: by [@techmahedy](https://github.com/techmahedy) in https://github.com/doppar/orion/pull/6
+
+**Full Changelog**: https://github.com/doppar/orion/compare/v1.1.3...4.0.0
+
 ## v1.1.3 - 2026-05-15
 
 ### What's Changed
