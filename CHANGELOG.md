@@ -1,5 +1,13 @@
 # Release Notes
 
+## v4.1.0 - 2026-10-03
+
+### What's Changed
+
+* Orion: fix command injection in pipelines, a pipeline deadlock, pool timeouts and quoting; add a richer result by [@techmahedy](https://github.com/techmahedy) in https://github.com/doppar/orion/pull/7
+
+**Full Changelog**: https://github.com/doppar/orion/compare/4.0.0...v4.1.0
+
 ## 4.0.0 - 2026-09-16
 
 ### What's Changed
