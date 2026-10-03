@@ -13,12 +13,12 @@ class ProcessService
     protected $command;
 
     /**
-     * @var int Process timeout in seconds (default: 60)
+     * @var int|float|null Process timeout in seconds (default: 60, null means no timeout)
      */
     protected $timeout = 60;
 
     /**
-     * @var int|null Idle timeout in seconds (null means no idle timeout)
+     * @var int|float|null Idle timeout in seconds (null means no idle timeout)
      */
     protected $idleTimeout = null;
 
@@ -48,9 +48,19 @@ class ProcessService
     protected $outputCallback;
 
     /**
-     * @var SymfonyProcess The Symfony Process instance
+     * @var SymfonyProcess|null The Symfony Process instance, once it has been started
      */
     protected $process;
+
+    /**
+     * @var float|null When the process was started, as a microtime
+     */
+    protected $startedAt = null;
+
+    /**
+     * @var float|null How long the process ran, in seconds, once it has finished
+     */
+    protected $duration = null;
 
     /**
      * @param string|array $command The command to execute
@@ -87,10 +97,10 @@ class ProcessService
     /**
      * Set the process timeout
      *
-     * @param int $timeout Timeout in seconds
+     * @param int|float|null $timeout Timeout in seconds; null or 0 means no timeout
      * @return self
      */
-    public function withTimeout(int $timeout): self
+    public function withTimeout(int|float|null $timeout): self
     {
         $this->timeout = $timeout;
 
@@ -98,12 +108,24 @@ class ProcessService
     }
 
     /**
-     * Set the idle timeout
+     * Let the process run for as long as it needs
      *
-     * @param int $idleTimeout Idle timeout in seconds
      * @return self
      */
-    public function withIdleTimeout(int $idleTimeout): self
+    public function withoutTimeout(): self
+    {
+        $this->timeout = null;
+
+        return $this;
+    }
+
+    /**
+     * Set the idle timeout: how long the process may go without producing output
+     *
+     * @param int|float|null $idleTimeout
+     * @return self
+     */
+    public function withIdleTimeout(int|float|null $idleTimeout): self
     {
         $this->idleTimeout = $idleTimeout;
 
@@ -113,10 +135,10 @@ class ProcessService
     /**
      * Set the working directory
      *
-     * @param string $cwd Working directory path
+     * @param string|null $cwd
      * @return self
      */
-    public function inDirectory(string $cwd): self
+    public function inDirectory(?string $cwd): self
     {
         $this->cwd = $cwd;
 
@@ -167,6 +189,7 @@ class ProcessService
      *
      * @param string|array|null $command Optional command to override
      * @return ProcessResult
+     * @throws \Symfony\Component\Process\Exception\ProcessTimedOutException
      */
     public function execute($command = null): ProcessResult
     {
@@ -175,9 +198,15 @@ class ProcessService
         }
 
         $this->process = $this->createSymfonyProcess();
-        $this->process->run($this->outputCallback);
+        $this->startedAt = microtime(true);
 
-        return new ProcessResult($this->process);
+        try {
+            $this->process->run($this->outputCallback);
+        } finally {
+            $this->duration = microtime(true) - $this->startedAt;
+        }
+
+        return $this->result();
     }
 
     /**
@@ -193,7 +222,9 @@ class ProcessService
         }
 
         $this->process = $this->createSymfonyProcess();
-        $this->process->start();
+        $this->duration = null;
+        $this->startedAt = microtime(true);
+        $this->process->start($this->outputCallback);
 
         return $this;
     }
@@ -201,19 +232,40 @@ class ProcessService
     /**
      * Wait for async process to complete
      *
+     * @param callable|null $callback
+     * @return ProcessResult
+     * @throws \Symfony\Component\Process\Exception\ProcessTimedOutException
+     */
+    public function waitForCompletion(?callable $callback = null): ProcessResult
+    {
+        $process = $this->started();
+
+        try {
+            $process->wait($callback);
+        } finally {
+            $this->duration ??= $this->startedAt !== null ? microtime(true) - $this->startedAt : null;
+        }
+
+        return $this->result();
+    }
+
+    /**
+     * The result of the process as it stands: final once it has finished, with an exit code
+     * of -1 while it is still running.
+     *
+     * @param bool $timedOut
      * @return ProcessResult
      */
-    public function waitForCompletion(): ProcessResult
+    public function result(bool $timedOut = false): ProcessResult
     {
-        $this->process->wait();
+        $process = $this->started();
 
-        $this->process->wait();
+        $duration = $this->duration
+            ?? ($this->startedAt !== null && !$process->isRunning() ? microtime(true) - $this->startedAt : null);
 
-        return new ProcessResult([
-            'output' => $this->process->getOutput(),
-            'error' => $this->process->getErrorOutput(),
-            'exitCode' => $this->process->getExitCode(),
-            'process' => $this->process
+        return new ProcessResult($process, [
+            'duration' => $duration,
+            'timedOut' => $timedOut,
         ]);
     }
 
@@ -225,7 +277,7 @@ class ProcessService
      */
     public function until(callable $condition): bool
     {
-        return $this->process->waitUntil($condition);
+        return $this->started()->waitUntil($condition);
     }
 
     /**
@@ -235,7 +287,42 @@ class ProcessService
      */
     public function isRunning(): bool
     {
-        return $this->process->isRunning();
+        return $this->started()->isRunning();
+    }
+
+    /**
+     * The process id, while it is running
+     *
+     * @return int|null
+     */
+    public function getPid(): ?int
+    {
+        return $this->started()->getPid();
+    }
+
+    /**
+     * Send a signal to the running process
+     *
+     * @param int $signal
+     * @return self
+     */
+    public function signal(int $signal): self
+    {
+        $this->started()->signal($signal);
+
+        return $this;
+    }
+
+    /**
+     * Stop the process: it is asked to end, and killed if it has not after the timeout
+     *
+     * @param int|float $timeout
+     * @param int|null $signal
+     * @return int|null
+     */
+    public function stop(int|float $timeout = 10, ?int $signal = null): ?int
+    {
+        return $this->started()->stop($timeout, $signal);
     }
 
     /**
@@ -245,7 +332,7 @@ class ProcessService
      */
     public function getLatestOutput(): string
     {
-        return $this->process->getIncrementalOutput();
+        return $this->started()->getIncrementalOutput();
     }
 
     /**
@@ -255,21 +342,34 @@ class ProcessService
      */
     public function getLatestError(): string
     {
-        return $this->process->getIncrementalErrorOutput();
+        return $this->started()->getIncrementalErrorOutput();
     }
 
     /**
-     * Verify if process has timed out
+     * Verify if process has timed out. A process that is polled with isRunning() is not
+     * stopped by its timeout; this checks it, stops it if it is over, and throws.
      *
-     * @throws \Exception If process has timed out
+     * @throws \Symfony\Component\Process\Exception\ProcessTimedOutException
+     * @throws \Symfony\Component\Process\Exception\ProcessSignaledException
      */
     public function verifyTimeout()
     {
-        try {
-            $this->process->checkTimeout();
-        } catch (\Exception $e) {
-            throw new \Exception($e->getMessage());
+        $this->started()->checkTimeout();
+    }
+
+    /**
+     * The process, or a clear error when nothing has been started yet
+     *
+     * @return SymfonyProcess
+     * @throws \LogicException
+     */
+    protected function started(): SymfonyProcess
+    {
+        if ($this->process === null) {
+            throw new \LogicException('The process has not been started. Call execute() or asAsync() first.');
         }
+
+        return $this->process;
     }
 
     /**
@@ -279,8 +379,16 @@ class ProcessService
      */
     protected function createSymfonyProcess(): SymfonyProcess
     {
+        $arguments = is_array($this->command)
+            ? $this->command
+            : ($this->command === null ? [] : CommandParser::parse((string) $this->command));
+
+        if ($arguments === []) {
+            throw new \LogicException('There is no command to run.');
+        }
+
         $process = new SymfonyProcess(
-            is_array($this->command) ? $this->command : explode(' ', $this->command),
+            $arguments,
             $this->cwd,
             $this->env,
             $this->input,

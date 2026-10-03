@@ -2,12 +2,14 @@
 
 namespace Doppar\Orion\Process;
 
+use Symfony\Component\Process\Process as SymfonyProcess;
+
 class ProcessPipeline
 {
     use InteractsWithCommandSanitization;
 
     /**
-     * @var array $commands The list of commands to execute in the pipeline
+     * @var array<int, array{command: string, arguments: array<int, string>}> The commands to execute, in order
      */
     protected $commands = [];
 
@@ -17,9 +19,14 @@ class ProcessPipeline
     protected $cwd = null;
 
     /**
-     * @var array|null $env Environment variables for the processes (null means inherit from PHP)
+     * @var array<string, string|false>|null $env Environment variables for the processes (null means inherit from PHP)
      */
     protected $env = null;
+
+    /**
+     * @var int|float|null Seconds each command may run (null, the default, means no timeout)
+     */
+    protected $timeout = null;
 
     /**
      * Static constructor for fluent interface
@@ -47,7 +54,7 @@ class ProcessPipeline
     /**
      * Set environment variables for all processes in the pipeline
      *
-     * @param array $env Associative array of environment variables
+     * @param array<string, string|false> $env Associative array of environment variables
      * @return self
      */
     public function withEnvironment(array $env): self
@@ -57,25 +64,46 @@ class ProcessPipeline
     }
 
     /**
+     * Set how long each command may run
+     *
+     * @param int|float|null $timeout
+     * @return self
+     */
+    public function withTimeout(int|float|null $timeout): self
+    {
+        $this->timeout = $timeout;
+
+        return $this;
+    }
+
+    /**
      * Add a command to the pipeline
      *
      * @param string $command The command to add (will be sanitized)
      * @return self
+     * @throws \InvalidArgumentException
      */
     public function add(string $command): self
     {
-        $this->commands[] = static::sanitizeCommand($command);
+        static::validateCommand($command);
+
+        $arguments = CommandParser::parse($command);
+
+        if ($arguments === []) {
+            throw new \InvalidArgumentException('A pipeline command cannot be empty.');
+        }
+
+        $this->commands[] = ['command' => $command, 'arguments' => $arguments];
+
         return $this;
     }
 
     /**
      * Execute the pipeline of commands
      *
-     * Creates a chain of processes where each process's output is piped
-     * to the next process's input. Returns the combined result.
-     *
      * @return ProcessResult The result of the pipeline execution
-     * @throws \RuntimeException If no commands were added or if process creation fails
+     * @throws \RuntimeException If no commands were added or if a process cannot be started
+     * @throws \Symfony\Component\Process\Exception\ProcessTimedOutException
      */
     public function execute(): ProcessResult
     {
@@ -83,85 +111,35 @@ class ProcessPipeline
             throw new \RuntimeException("No commands added to pipeline");
         }
 
-        $processes = [];
+        $startedAt = microtime(true);
+        $input = null;
+        $errors = '';
         $exitCodes = [];
+        $output = '';
 
-        // Create first process with input pipe (not STDIN)
-        $firstDescriptors = [
-            0 => ['pipe', 'r'],  // Input pipe
-            1 => ['pipe', 'w'],  // Pipe for stdout
-            2 => ['pipe', 'w']   // Pipe for stderr
-        ];
+        foreach ($this->commands as $stage) {
+            $process = new SymfonyProcess($stage['arguments'], $this->cwd, $this->env, $input, $this->timeout);
 
-        $firstPipes = [];
-        $firstProcess = proc_open($this->commands[0], $firstDescriptors, $firstPipes, $this->cwd, $this->env);
-        if (!is_resource($firstProcess)) {
-            throw new \RuntimeException("Failed to start process: {$this->commands[0]}");
-        }
-
-        // Close input pipe since we won't be writing to it
-        fclose($firstPipes[0]);
-
-        $processes[] = [
-            'process' => $firstProcess,
-            'pipes' => $firstPipes
-        ];
-
-        // Create subsequent processes with pipes
-        for ($i = 1; $i < count($this->commands); $i++) {
-            $prevPipes = end($processes)['pipes'];
-
-            $descriptors = [
-                0 => ['pipe', 'r'],  // Will receive output from previous process
-                1 => ['pipe', 'w'],  // Pipe for stdout
-                2 => ['pipe', 'w']   // Pipe for stderr
-            ];
-
-            $currentPipes = [];
-            $currentProcess = proc_open($this->commands[$i], $descriptors, $currentPipes, $this->cwd, $this->env);
-            if (!is_resource($currentProcess)) {
-                throw new \RuntimeException("Failed to start process: {$this->commands[$i]}");
+            try {
+                $process->run();
+            } catch (\Symfony\Component\Process\Exception\ProcessStartFailedException $e) {
+                throw new \RuntimeException("Failed to start process: {$stage['command']}", 0, $e);
             }
 
-            // Connect previous process output to current process input
-            stream_copy_to_stream($prevPipes[1], $currentPipes[0]);
-
-            // Close the pipes
-            fclose($prevPipes[1]);
-            fclose($currentPipes[0]);
-
-            $processes[] = [
-                'process' => $currentProcess,
-                'pipes' => $currentPipes
-            ];
+            $exitCodes[] = $process->getExitCode() ?? -1;
+            $errors .= $process->getErrorOutput();
+            $output = $input = $process->getOutput();
         }
 
-        // Get output from last process
-        $lastProcess = end($processes);
-        $output = stream_get_contents($lastProcess['pipes'][1]);
-        $error = stream_get_contents($lastProcess['pipes'][2]);
+        $failed = array_filter($exitCodes, fn(int $code) => $code !== 0);
 
-        // Close all pipes
-        foreach ($processes as $proc) {
-            foreach ($proc['pipes'] as $pipe) {
-                if (is_resource($pipe)) {
-                    fclose($pipe);
-                }
-            }
-        }
-
-        // Get exit codes
-        foreach ($processes as $proc) {
-            $status = proc_get_status($proc['process']);
-            $exitCodes[] = $status['exitcode'] ?? -1;
-            proc_close($proc['process']);
-        }
-
-        // Create result object
         $result = new \stdClass();
-        $result->output = $output ?: '';
-        $result->error = $error ?: '';
-        $result->exitCode = max($exitCodes);
+        $result->output = $output;
+        $result->error = $errors;
+        $result->exitCode = $failed === [] ? 0 : end($failed);
+        $result->exitCodes = $exitCodes;
+        $result->commandLine = implode(' | ', array_column($this->commands, 'command'));
+        $result->duration = microtime(true) - $startedAt;
 
         return new ProcessResult($result);
     }

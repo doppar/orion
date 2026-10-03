@@ -3,10 +3,16 @@
 namespace Doppar\Orion\Process;
 
 use Doppar\Orion\Process\InteractsWithCommandSanitization;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 
 class ProcessPool
 {
     use InteractsWithCommandSanitization;
+
+    /**
+     * How long to sleep between checks of the running processes, in microseconds.
+     */
+    protected const POLL_INTERVAL = 10000;
 
     /**
      * @var array $processes Collection of process entries with their state
@@ -21,6 +27,16 @@ class ProcessPool
      * @var string|null $cwd Working directory for all processes
      */
     protected $cwd = null;
+
+    /**
+     * @var array<string, string|false>|null $env Environment variables for all processes
+     */
+    protected $env = null;
+
+    /**
+     * @var int|float|null $timeout Seconds each process may run (null means no timeout)
+     */
+    protected $timeout = 60;
 
     /**
      * @var callable|null $outputHandler Callback to handle process output
@@ -61,6 +77,33 @@ class ProcessPool
     }
 
     /**
+     * Set environment variables for all processes
+     *
+     * @param array<string, string|false> $env Associative array of environment variables
+     * @return self
+     */
+    public function withEnvironment(array $env): self
+    {
+        $this->env = $env;
+
+        return $this;
+    }
+
+    /**
+     * Set how long each process may run. One that exceeds it is stopped, and its result
+     * reports timedOut() while the others carry on.
+     *
+     * @param int|float|null $timeout Seconds; null or 0 means no timeout
+     * @return self
+     */
+    public function withTimeout(int|float|null $timeout): self
+    {
+        $this->timeout = $timeout;
+
+        return $this;
+    }
+
+    /**
      * Set a callback to handle process output
      *
      * @param callable $handler Function to receive process results
@@ -81,7 +124,6 @@ class ProcessPool
      */
     public function withConcurrency(int $max): self
     {
-        // Fixed typo in property name
         $this->maxConcurrent = max(1, $max);
 
         return $this;
@@ -90,11 +132,11 @@ class ProcessPool
     /**
      * Add a command to the process pool
      *
-     * @param string $command Command to execute (will be sanitized)
+     * @param string|array<int, string> $command Command to execute (will be sanitized)
      * @return self
      * @throws \RuntimeException If pool has already started
      */
-    public function add(string $command): self
+    public function add(string|array $command): self
     {
         if ($this->started) {
             throw new \RuntimeException("Cannot add commands after pool has started");
@@ -123,39 +165,78 @@ class ProcessPool
         }
 
         $this->started = true;
-        $running = 0;
 
-        foreach ($this->processes as &$item) {
-            while ($running >= $this->maxConcurrent) {
-                $this->checkRunningProcesses($running);
-                // Sleep for 100ms to avoid busy waiting
-                usleep(100000);
+        foreach (array_keys($this->processes) as $index) {
+            while ($this->countRunning() >= $this->maxConcurrent) {
+                $this->checkRunningProcesses();
+                usleep(static::POLL_INTERVAL);
             }
 
-            $item['process'] = ProcessService::create($item['command'])
+            $service = ProcessService::create($this->processes[$index]['command'])
                 ->inDirectory($this->cwd)
-                ->asAsync();
-            $running++;
+                ->withTimeout($this->timeout);
+
+            if ($this->env !== null) {
+                $service->withEnvironment($this->env);
+            }
+
+            $this->processes[$index]['process'] = $service->asAsync();
         }
 
         return $this;
     }
 
     /**
+     * How many started processes have not been finished off yet
+     *
+     * @return int
+     */
+    protected function countRunning(): int
+    {
+        $running = 0;
+
+        foreach ($this->processes as $item) {
+            if ($item['process'] !== null && $item['result'] === null) {
+                $running++;
+            }
+        }
+
+        return $running;
+    }
+
+    /**
      * Check running processes and handle completed ones
      *
-     * @param int &$runningCount Reference to running process count (will be decremented)
+     * A process that has finished, or has gone over its timeout (it is stopped), gets its
+     * result and the output handler is called once for it.
      */
-    protected function checkRunningProcesses(&$runningCount): void
+    protected function checkRunningProcesses(): void
     {
-        foreach ($this->processes as &$item) {
-            if ($item['process'] && !isset($item['result']) && !$item['process']->isRunning()) {
-                $item['result'] = $item['process']->waitForCompletion();
-                $runningCount--;
+        foreach ($this->processes as $index => $item) {
+            if ($item['process'] === null || $item['result'] !== null) {
+                continue;
+            }
 
-                if ($this->outputHandler) {
-                    call_user_func($this->outputHandler, $item['result']);
-                }
+            /** @var ProcessService $service */
+            $service = $item['process'];
+            $timedOut = false;
+
+            try {
+                $service->verifyTimeout();
+            } catch (ProcessTimedOutException) {
+                $timedOut = true;
+            }
+
+            if (!$timedOut && $service->isRunning()) {
+                continue;
+            }
+
+            $service->waitForCompletion();
+
+            $this->processes[$index]['result'] = $service->result($timedOut);
+
+            if ($this->outputHandler) {
+                call_user_func($this->outputHandler, $this->processes[$index]['result']);
             }
         }
     }
@@ -169,7 +250,7 @@ class ProcessPool
     {
         $running = [];
         foreach ($this->processes as $key => $item) {
-            if ($item['process'] && $item['process']->isRunning()) {
+            if ($item['process'] && $item['result'] === null && $item['process']->isRunning()) {
                 $running[$key] = $item['process'];
             }
         }
@@ -180,7 +261,7 @@ class ProcessPool
      * Wait for all processes in the pool to complete
      *
      * If pool hasn't started, starts it first.
-     * Blocks until all processes finish execution.
+     * Blocks until all processes finish, or are stopped for exceeding their timeout.
      *
      * @return array Array of results keyed by their original position
      */
@@ -190,21 +271,15 @@ class ProcessPool
             $this->start();
         }
 
-        $results = [];
-        $running = count($this->getRunningProcesses());
-
-        while ($running > 0) {
-            $this->checkRunningProcesses($running);
-            // Sleep for 100ms between checks
-            usleep(100000);
+        while ($this->countRunning() > 0) {
+            $this->checkRunningProcesses();
+            usleep(static::POLL_INTERVAL);
         }
 
-        // Collect all results
+        $results = [];
+
         foreach ($this->processes as $key => $item) {
-            if (!isset($item['result']) && $item['process']) {
-                $item['result'] = $item['process']->waitForCompletion();
-            }
-            $results[$key] = $item['result'] ?? null;
+            $results[$key] = $item['result'];
         }
 
         return $results;
