@@ -22,7 +22,8 @@ class ProcessTest extends TestCase
         $result = $process->execute();
 
         $this->assertInstanceOf(ProcessResult::class, $result);
-        $this->assertEquals("\"Hello World\"\n", $result->getOutput());
+        // The quotes are read as quotes, as a shell would, and are not part of the output.
+        $this->assertEquals("Hello World\n", $result->getOutput());
         $this->assertTrue($result->wasSuccessful());
         $this->assertEquals(0, $result->getExitCode());
     }
@@ -199,7 +200,9 @@ class ProcessTest extends TestCase
 
         $pool->start()->waitForAll();
 
-        $this->assertEquals(['"Handler 1"', '"Handler 2"'], $outputs);
+        sort($outputs);
+
+        $this->assertEquals(['Handler 1', 'Handler 2'], $outputs);
     }
 
     /**

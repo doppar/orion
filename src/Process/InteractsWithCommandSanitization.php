@@ -50,7 +50,9 @@ trait InteractsWithCommandSanitization
             '/\$\(/',
             '/>/',
             '/</',
-            '/\${/'
+            '/\${/',
+            // A line break starts a new command in a shell, and a NUL byte ends a string in C.
+            '/[\r\n\0]/'
         ];
 
         foreach ($dangerousPatterns as $pattern) {
